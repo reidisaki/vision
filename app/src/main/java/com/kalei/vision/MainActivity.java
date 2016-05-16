@@ -16,30 +16,6 @@
 
 package com.kalei.vision;
 
-import android.Manifest;
-import android.app.ProgressDialog;
-import android.content.DialogInterface;
-import android.content.Intent;
-import android.graphics.Bitmap;
-import android.graphics.Color;
-import android.net.Uri;
-import android.os.AsyncTask;
-import android.os.Bundle;
-import android.os.Environment;
-import android.provider.MediaStore;
-import android.provider.Settings.Secure;
-import android.support.design.widget.FloatingActionButton;
-import android.support.v7.app.AlertDialog;
-import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.Toolbar;
-import android.util.Log;
-import android.view.View;
-import android.widget.ImageView;
-import android.widget.ProgressBar;
-import android.widget.RelativeLayout;
-import android.widget.TextView;
-import android.widget.Toast;
-
 import com.google.android.gms.ads.AdRequest;
 import com.google.android.gms.ads.AdView;
 import com.google.api.client.extensions.android.http.AndroidHttp;
@@ -56,6 +32,28 @@ import com.google.api.services.vision.v1.model.EntityAnnotation;
 import com.google.api.services.vision.v1.model.Feature;
 import com.google.api.services.vision.v1.model.Image;
 
+import android.Manifest;
+import android.app.ProgressDialog;
+import android.content.DialogInterface;
+import android.content.DialogInterface.OnCancelListener;
+import android.content.Intent;
+import android.graphics.Bitmap;
+import android.net.Uri;
+import android.os.AsyncTask;
+import android.os.Bundle;
+import android.os.Environment;
+import android.provider.MediaStore;
+import android.provider.Settings.Secure;
+import android.support.design.widget.FloatingActionButton;
+import android.support.v7.app.AlertDialog;
+import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.Toolbar;
+import android.util.Log;
+import android.view.View;
+import android.widget.ImageView;
+import android.widget.TextView;
+import android.widget.Toast;
+
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -71,11 +69,12 @@ public class MainActivity extends AppCompatActivity {
     private static final int GALLERY_IMAGE_REQUEST = 1;
     public static final int CAMERA_PERMISSIONS_REQUEST = 2;
     public static final int CAMERA_IMAGE_REQUEST = 3;
-
+    AsyncTask mTask;
     private TextView mImageDetails;
     private ImageView mMainImage;
     ProgressDialog mProgressLoading;
-    private HashMap<String,String> mTranslateTable;
+    private HashMap<String, String> mTranslateTable;
+
     public void loadAds() {
 
         AdView mAdView = (AdView) findViewById(R.id.adView);
@@ -127,7 +126,6 @@ public class MainActivity extends AppCompatActivity {
 
         mImageDetails = (TextView) findViewById(R.id.image_details);
         mMainImage = (ImageView) findViewById(R.id.main_image);
-
     }
 
     public void startGalleryChooser() {
@@ -151,12 +149,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void toggleLoading(boolean showLoading) {
-        mProgressLoading = ProgressDialog.show(this,"Uploading image", "Please wait...", true, true);
-        if(!showLoading) {
+        mProgressLoading = ProgressDialog.show(this, "Uploading image", "Please wait...", true, true);
+        if (!showLoading) {
             mProgressLoading.dismiss();
         }
-
     }
+
     public File getCameraFile() {
         File dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
         return new File(dir, FILE_NAME);
@@ -166,6 +164,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         loadAds();
+        mMainImage.setVisibility(View.VISIBLE);
         if (requestCode == GALLERY_IMAGE_REQUEST && resultCode == RESULT_OK && data != null) {
             uploadImage(data.getData());
         } else if (requestCode == CAMERA_IMAGE_REQUEST && resultCode == RESULT_OK) {
@@ -196,7 +195,6 @@ public class MainActivity extends AppCompatActivity {
 
                 callCloudVision(bitmap);
                 mMainImage.setImageBitmap(bitmap);
-
             } catch (IOException e) {
                 Log.d(TAG, "Image picking failed because " + e.getMessage());
                 Toast.makeText(this, R.string.image_picker_error, Toast.LENGTH_LONG).show();
@@ -210,10 +208,20 @@ public class MainActivity extends AppCompatActivity {
     private void callCloudVision(final Bitmap bitmap) throws IOException {
         // Switch text to loading
         mImageDetails.setText("");
+        mProgressLoading = ProgressDialog.show(this, "Uploading image", "Please wait...", true, true);
+        mProgressLoading.setOnCancelListener(new OnCancelListener() {
+            @Override
+            public void onCancel(final DialogInterface dialog) {
+                if (mTask != null) {
+                    mImageDetails.setText(getString(R.string.instruction_text));
+                    mMainImage.setVisibility(View.GONE);
+                    mTask.cancel(true);
+                }
+            }
+        });
 
-        mProgressLoading = ProgressDialog.show(this,"Uploading image", "Please wait...", true, false);
         // Do the real work in an async task, because we need to use the network anyway
-        new AsyncTask<Object, Void, String>() {
+        mTask = new AsyncTask<Object, Void, String>() {
             @Override
             protected String doInBackground(Object... params) {
                 try {
@@ -262,7 +270,6 @@ public class MainActivity extends AppCompatActivity {
 
                     BatchAnnotateImagesResponse response = annotateRequest.execute();
                     return convertResponseToString(response);
-
                 } catch (GoogleJsonResponseException e) {
                     Log.d(TAG, "failed to make API request because " + e.getContent());
                 } catch (IOException e) {
@@ -276,7 +283,8 @@ public class MainActivity extends AppCompatActivity {
                 mProgressLoading.dismiss();
                 mImageDetails.setText(result);
             }
-        }.execute();
+        };
+        mTask.execute();
     }
 
     public Bitmap scaleBitmapDown(Bitmap bitmap, int maxDimension) {
@@ -306,7 +314,8 @@ public class MainActivity extends AppCompatActivity {
         if (labels != null) {
             for (EntityAnnotation label : labels) {
 
-                message += String.format("%d%% : %s", Math.round(label.getScore()*100), lookUpHashValue(label.getDescription()) == null ? label.getDescription(): lookUpHashValue(label.getDescription()));
+                message += String.format("%d%% : %s", Math.round(label.getScore() * 100),
+                        lookUpHashValue(label.getDescription()) == null ? label.getDescription() : lookUpHashValue(label.getDescription()));
                 message += "\n";
             }
         } else {
@@ -317,7 +326,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void createHashTable() {
-        if(mTranslateTable == null) {
+        if (mTranslateTable == null) {
             mTranslateTable = new HashMap<>();
         }
 
@@ -327,13 +336,15 @@ public class MainActivity extends AppCompatActivity {
         mTranslateTable.put("eyebrow", "manly brow");
         mTranslateTable.put("eye brow", "manly brow");
         mTranslateTable.put("beauty", "silly ho");
-        mTranslateTable.put("laptop", "STUPID PIECE OF METAL");
-        mTranslateTable.put("computer", "STUPID PIECE OF METAL");
-
+        mTranslateTable.put("laptop", "stupid piece of metal");
+        mTranslateTable.put("woman", "troll");
+        mTranslateTable.put("child", "stumpy");
+        mTranslateTable.put("hair", "smelly");
+        mTranslateTable.put("toddler", "trilobyte");
     }
+
     private String lookUpHashValue(String key) {
 
         return mTranslateTable.get(key);
-
     }
 }
