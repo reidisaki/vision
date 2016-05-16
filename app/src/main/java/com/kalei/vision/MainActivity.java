@@ -14,17 +14,20 @@
  * limitations under the License.
  */
 
-package com.google.sample.cloudvision;
+package com.kalei.vision;
 
 import android.Manifest;
+import android.app.ProgressDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
+import android.provider.Settings.Secure;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
@@ -32,9 +35,13 @@ import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.gms.ads.AdRequest;
+import com.google.android.gms.ads.AdView;
 import com.google.api.client.extensions.android.http.AndroidHttp;
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.client.http.HttpTransport;
@@ -53,6 +60,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
@@ -66,6 +74,25 @@ public class MainActivity extends AppCompatActivity {
 
     private TextView mImageDetails;
     private ImageView mMainImage;
+    ProgressDialog mProgressLoading;
+    private HashMap<String,String> mTranslateTable;
+    public void loadAds() {
+
+        AdView mAdView = (AdView) findViewById(R.id.adView);
+        if (mAdView != null) {
+            String android_id = Secure.getString(this.getContentResolver(),
+                    Secure.ANDROID_ID);
+//            AdRequest adRequest = new AdRequest.Builder().addTestDevice(android_id).build();
+            AdRequest adRequest = new AdRequest.Builder().build();
+            mAdView.loadAd(adRequest);
+        }
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        loadAds();
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -73,6 +100,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+        createHashTable();
 
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
@@ -99,6 +127,7 @@ public class MainActivity extends AppCompatActivity {
 
         mImageDetails = (TextView) findViewById(R.id.image_details);
         mMainImage = (ImageView) findViewById(R.id.main_image);
+
     }
 
     public void startGalleryChooser() {
@@ -121,6 +150,13 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    public void toggleLoading(boolean showLoading) {
+        mProgressLoading = ProgressDialog.show(this,"Uploading image", "Please wait...", true, true);
+        if(!showLoading) {
+            mProgressLoading.dismiss();
+        }
+
+    }
     public File getCameraFile() {
         File dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
         return new File(dir, FILE_NAME);
@@ -129,7 +165,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-
+        loadAds();
         if (requestCode == GALLERY_IMAGE_REQUEST && resultCode == RESULT_OK && data != null) {
             uploadImage(data.getData());
         } else if (requestCode == CAMERA_IMAGE_REQUEST && resultCode == RESULT_OK) {
@@ -173,8 +209,9 @@ public class MainActivity extends AppCompatActivity {
 
     private void callCloudVision(final Bitmap bitmap) throws IOException {
         // Switch text to loading
-        mImageDetails.setText(R.string.loading_message);
+        mImageDetails.setText("");
 
+        mProgressLoading = ProgressDialog.show(this,"Uploading image", "Please wait...", true, false);
         // Do the real work in an async task, because we need to use the network anyway
         new AsyncTask<Object, Void, String>() {
             @Override
@@ -236,6 +273,7 @@ public class MainActivity extends AppCompatActivity {
             }
 
             protected void onPostExecute(String result) {
+                mProgressLoading.dismiss();
                 mImageDetails.setText(result);
             }
         }.execute();
@@ -267,7 +305,8 @@ public class MainActivity extends AppCompatActivity {
         List<EntityAnnotation> labels = response.getResponses().get(0).getLabelAnnotations();
         if (labels != null) {
             for (EntityAnnotation label : labels) {
-                message += String.format("%d%% : %s", Math.round(label.getScore()*100), label.getDescription());
+
+                message += String.format("%d%% : %s", Math.round(label.getScore()*100), lookUpHashValue(label.getDescription()) == null ? label.getDescription(): lookUpHashValue(label.getDescription()));
                 message += "\n";
             }
         } else {
@@ -275,5 +314,26 @@ public class MainActivity extends AppCompatActivity {
         }
 
         return message;
+    }
+
+    private void createHashTable() {
+        if(mTranslateTable == null) {
+            mTranslateTable = new HashMap<>();
+        }
+
+        //for smellia
+        mTranslateTable.put("model", "hag");
+        mTranslateTable.put("girl", "ho bag");
+        mTranslateTable.put("eyebrow", "manly brow");
+        mTranslateTable.put("eye brow", "manly brow");
+        mTranslateTable.put("beauty", "silly ho");
+        mTranslateTable.put("laptop", "STUPID PIECE OF METAL");
+        mTranslateTable.put("computer", "STUPID PIECE OF METAL");
+
+    }
+    private String lookUpHashValue(String key) {
+
+        return mTranslateTable.get(key);
+
     }
 }

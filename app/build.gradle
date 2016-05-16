@@ -5,7 +5,7 @@ android {
     buildToolsVersion "23.0.2"
 
     defaultConfig {
-        applicationId "com.google.sample.cloudvision"
+        applicationId "com.kalei.vision"
         minSdkVersion 22
         targetSdkVersion 23
         versionCode 1
@@ -27,6 +27,6 @@ dependencies {
 
     compile 'com.google.api-client:google-api-client-android:1.20.0' exclude module: 'httpclient'
     compile 'com.google.http-client:google-http-client-gson:1.20.0' exclude module: 'httpclient'
-
+    compile 'com.google.android.gms:play-services-ads:8.4.0'
     compile 'com.google.apis:google-api-services-vision:v1-rev2-1.21.0'
 }
