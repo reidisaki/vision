@@ -25,6 +25,7 @@ import android.os.Bundle;
 public class AdActivity extends AppCompatActivity implements InterstitialAdListener {
     InterstitialAd mInterstitialAd;
     private MoPubInterstitial mInterstitial;
+    private static boolean moPubInitialized = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,11 +41,25 @@ public class AdActivity extends AppCompatActivity implements InterstitialAdListe
         return new SdkInitializationListener() {
             @Override
             public void onInitializationFinished() {
-                mInterstitial = new MoPubInterstitial(AdActivity.this, "3979621b5b9d492d8bb69530a00e6abf");
-                mInterstitial.setInterstitialAdListener(AdActivity.this);
-                mInterstitial.load();
+                moPubInitialized = true;
+                loadInterstitial();
             }
         };
+    }
+
+    private void loadInterstitial() {
+
+        if (moPubInitialized) {
+            mInterstitial = new MoPubInterstitial(AdActivity.this, "3979621b5b9d492d8bb69530a00e6abf");
+            mInterstitial.setInterstitialAdListener(AdActivity.this);
+            mInterstitial.load();
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        loadInterstitial();
     }
 
     private void mopubstuff() {
@@ -84,7 +99,9 @@ public class AdActivity extends AppCompatActivity implements InterstitialAdListe
 
     @Override
     protected void onDestroy() {
-        mInterstitial.destroy();
+        if (mInterstitial != null) {
+            mInterstitial.destroy();
+        }
         super.onDestroy();
     }
 
