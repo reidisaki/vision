@@ -6,9 +6,9 @@ android {
 
     defaultConfig {
         applicationId "com.kalei.vision"
-        minSdkVersion 21
+        minSdkVersion 19
         targetSdkVersion 27
-        versionCode 5
+        versionCode 6
         versionName "1.1"
     }
     buildTypes {
